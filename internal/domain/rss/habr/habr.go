@@ -32,16 +32,16 @@ func NewHabr(l *slog.Logger, cache cache.AppCache) *Habr {
 	}
 }
 
-func (h *Habr) Feed(ctx context.Context, filter RssFilter) (*http.RSS, error) {
-	endpoint := filter.BuildRssUrl()
-	h.l.Debug(fmt.Sprintf("execute request to %s", endpoint))
-	resp, err := h.client.GET(ctx, endpoint, nil)
+func (h *Habr) feed(ctx context.Context, url string) (*http.RSS, error) {
+	h.l.Debug(fmt.Sprintf("execute request to %s", url))
+	resp, err := h.client.GET(ctx, url, nil)
 
-	var rss http.RSS
 	if err != nil {
-		h.l.ErrorContext(ctx, fmt.Sprintf("execute request to %s failed", endpoint))
+		h.l.ErrorContext(ctx, fmt.Sprintf("execute request to %s failed", url))
 		return nil, err
 	}
+
+	var rss http.RSS
 
 	err = xml.Unmarshal(resp, &rss)
 	if err != nil {
@@ -53,21 +53,20 @@ func (h *Habr) Feed(ctx context.Context, filter RssFilter) (*http.RSS, error) {
 	return &rss, nil
 }
 
+func (h *Habr) Feed(ctx context.Context, filter RssFilter) (*http.RSS, error) {
+	return h.feed(ctx, filter.BuildRssUrl())
+}
+
 func (h *Habr) FeedCached(ctx context.Context, filter RssFilter) (*http.RSS, error) {
-	if res, ok := h.cache.Get(cache.NewMd5Key(filter.BuildRssUrl())); ok {
-		h.l.DebugContext(ctx, fmt.Sprintf("cache found for current query %s", filter.BuildRssUrl()))
-
-		return res.(*http.RSS), nil
-	}
-
-	res, err := h.Feed(ctx, filter)
+	key := cache.NewMd5Key(filter.BuildRssUrl())
+	res, err := h.cache.DoGet(ctx, key, 5*time.Minute, func() (interface{}, error) {
+		return h.Feed(ctx, filter)
+	})
 
 	if err != nil {
-		h.l.ErrorContext(ctx, fmt.Sprintf("fetch rss failed: %s", err))
+		h.l.ErrorContext(ctx, fmt.Sprintf("cache get failed: %s", err))
 		return nil, err
 	}
 
-	h.cache.Set(cache.NewMd5Key(filter.BuildRssUrl()), res, 5*time.Minute)
-
-	return res, nil
+	return res.(*http.RSS), nil
 }

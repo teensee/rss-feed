@@ -1,15 +1,18 @@
 package app
 
 import (
+	"context"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/patrickmn/go-cache"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"rss-feed/internal/domain/rss/composite"
 	"rss-feed/internal/domain/rss/habr"
 	"rss-feed/internal/handler"
-	app_cache "rss-feed/pkg/cache"
+	"rss-feed/pkg/cache"
+	http2 "rss-feed/pkg/http"
 	"time"
 )
 
@@ -20,7 +23,7 @@ type AppHandler interface {
 type App struct {
 	log      *slog.Logger
 	router   *chi.Mux
-	cache    app_cache.AppCache
+	cache    cache.AppCache
 	handlers map[string]AppHandler
 }
 
@@ -46,7 +49,11 @@ func (b *Builder) WithLogger() *Builder {
 }
 
 func (b *Builder) WithCache() *Builder {
-	b.kernel.cache = app_cache.NewGoCache(cache.New(5*time.Minute, 30*time.Minute))
+	b.kernel.cache = cache.NewGoCache(
+		5*time.Minute,
+		30*time.Minute,
+		b.kernel.log,
+	)
 
 	return b
 }
@@ -55,10 +62,31 @@ func (b *Builder) WithHandlers() *Builder {
 	handlers := make(map[string]AppHandler)
 	log := b.kernel.log
 	appCache := b.kernel.cache
+	if appCache == nil {
+		log.InfoContext(context.TODO(), "Startup with dummy cache")
+		appCache = cache.NewDummyCache()
+	}
 
 	habrHandler := habr.NewHabr(log, appCache)
+	compositeHandler := composite.NewCompositeRss(
+		[]url.URL{
+			{
+				Scheme: "https",
+				Host:   "habr.com",
+				Path:   "/ru/rss/articles/top/daily",
+			},
+			{
+				Scheme: "https",
+				Host:   "lenta.ru",
+				Path:   "/rss/google-newsstand/main",
+			},
+		},
+		http2.NewClient(url.URL{}, log),
+		appCache,
+		log,
+	)
 
-	handlers["ping"] = handler.NewPingHandler(habrHandler)
+	handlers["ping"] = handler.NewPingHandler(habrHandler, compositeHandler)
 
 	b.kernel.handlers = handlers
 	return b
