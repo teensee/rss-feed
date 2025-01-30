@@ -12,15 +12,12 @@ type RSS struct {
 }
 
 type Channel struct {
-	Title          string  `xml:"title"`
-	Link           string  `xml:"link"`
-	Description    string  `xml:"description"`
-	PubDate        string  `xml:"pubDate"`
-	ManagingEditor *string `xml:"managingEditor"`
-	Language       *string `xml:"language"`
-	Generator      *string `xml:"generator"`
-	Image          *Image  `xml:"image"`
-	Items          *[]Item `xml:"item"`
+	Title       string  `xml:"title"`
+	Link        string  `xml:"link"`
+	Description string  `xml:"description"`
+	PubDate     string  `xml:"pubDate"`
+	Image       *Image  `xml:"image"`
+	Items       *[]Item `xml:"item"`
 }
 
 type Image struct {
@@ -31,7 +28,6 @@ type Image struct {
 
 type Item struct {
 	Title       string   `xml:"title"`
-	GUID        GUID     `xml:"guid"`
 	Link        string   `xml:"link"`
 	Description string   `xml:"description"`
 	PubDate     string   `xml:"pubDate"`
