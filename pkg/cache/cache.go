@@ -79,6 +79,7 @@ func (c *GoCache) DoGet(ctx context.Context, key Key, exp time.Duration, fn Cach
 
 	res, err := fn()
 	if err != nil {
+		c.l.ErrorContext(ctx, fmt.Sprintf("Function return error: %s, for key: %s", err, key))
 		return nil, err
 	}
 

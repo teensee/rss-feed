@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"rss-feed/internal/domain/rss"
 	"rss-feed/internal/domain/rss/composite"
 	"rss-feed/internal/domain/rss/habr"
 	"rss-feed/internal/handler"
@@ -69,24 +70,18 @@ func (b *Builder) WithHandlers() *Builder {
 
 	habrHandler := habr.NewHabr(log, appCache)
 	compositeHandler := composite.NewCompositeRss(
-		[]url.URL{
-			{
-				Scheme: "https",
-				Host:   "habr.com",
-				Path:   "/ru/rss/articles/top/daily",
-			},
-			{
-				Scheme: "https",
-				Host:   "lenta.ru",
-				Path:   "/rss/google-newsstand/main",
-			},
+		composite.NewCompositeFetcher(http2.NewClient(url.URL{}, log), appCache, log),
+		[]rss.Processor{
+			rss.NewHtmlSanitizer(),
+
+			// must be last in processor list
+			rss.NewMaxLengthProcessor(),
 		},
-		http2.NewClient(url.URL{}, log),
-		appCache,
 		log,
 	)
 
 	handlers["ping"] = handler.NewPingHandler(habrHandler, compositeHandler)
+	handlers["feed"] = handler.NewFeedHandler(compositeHandler, log)
 
 	b.kernel.handlers = handlers
 	return b
@@ -107,6 +102,7 @@ func (b *Builder) WithEndpoints() *Builder {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/ping", b.kernel.handlers["ping"].Handle)
+		r.Post("/feed", b.kernel.handlers["feed"].Handle)
 	})
 
 	b.kernel.router = r

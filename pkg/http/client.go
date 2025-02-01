@@ -5,10 +5,24 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
 )
+
+var userAgents = []string{
+	"Mozilla/5.0 (Windows; U; Windows NT 10.1; Win64; x64; en-US) Gecko/20130401 Firefox/62.6",
+	"Mozilla/5.0 (Linux; Android 5.1.1; XT1021 Build/LPC23) AppleWebKit/533.21 (KHTML, like Gecko)  Chrome/48.0.2178.136 Mobile Safari/603.7",
+	"Mozilla/5.0 (U; Linux i582 ; en-US) AppleWebKit/534.45 (KHTML, like Gecko) Chrome/47.0.1108.138 Safari/600",
+	"Mozilla/5.0 (iPhone; CPU iPhone OS 9_9_4; like Mac OS X) AppleWebKit/601.25 (KHTML, like Gecko)  Chrome/48.0.1616.219 Mobile Safari/600.9",
+	"Mozilla/5.0 (Windows NT 10.1; WOW64; en-US) AppleWebKit/603.27 (KHTML, like Gecko) Chrome/53.0.3269.114 Safari/536.6 Edge/16.16842",
+	"Mozilla/5.0 (compatible; MSIE 8.0; Windows NT 6.2; Trident/4.0)",
+	"Mozilla/5.0 (iPhone; CPU iPhone OS 7_8_2; like Mac OS X) AppleWebKit/534.9 (KHTML, like Gecko)  Chrome/50.0.3983.120 Mobile Safari/600.4",
+	"Mozilla/5.0 (Linux; U; Linux x86_64; en-US) Gecko/20100101 Firefox/60.7",
+	"Mozilla/5.0 (U; Linux i670 ; en-US) Gecko/20100101 Firefox/46.6",
+	"Mozilla/5.0 (Linux; Linux x86_64) Gecko/20130401 Firefox/50.0",
+}
 
 type UnexpectedStatusCode struct {
 	statusCode int
@@ -16,7 +30,7 @@ type UnexpectedStatusCode struct {
 }
 
 func (u *UnexpectedStatusCode) Error() string {
-	return "unexpected status code"
+	return fmt.Sprintf("unexpected status code: %d (%q)", u.statusCode, u.body)
 }
 
 func (u *UnexpectedStatusCode) StatusCode() int {
@@ -27,13 +41,21 @@ func (u *UnexpectedStatusCode) GetBody() []byte {
 	return u.body
 }
 
+var _ HttpClient = &Client{}
+
+type HttpClient interface {
+	Do(ctx context.Context, req *http.Request) ([]byte, error)
+	GET(ctx context.Context, relativePath string, headers map[string]string) ([]byte, error)
+	POST(ctx context.Context, relativePath string, body io.Reader, headers map[string]string) ([]byte, error)
+}
+
 type Client struct {
 	baseUrl url.URL
 	c       *http.Client
 	l       *slog.Logger
 }
 
-func NewClient(baseUrl url.URL, l *slog.Logger) *Client {
+func NewClient(baseUrl url.URL, l *slog.Logger) HttpClient {
 	return &Client{
 		l:       l,
 		baseUrl: baseUrl,
@@ -44,6 +66,9 @@ func NewClient(baseUrl url.URL, l *slog.Logger) *Client {
 }
 
 func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
+	req.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))])
+
+	c.l.DebugContext(ctx, fmt.Sprintf("Do %s", req.URL.String()), "headers", req.Header)
 	resp, err := c.c.Do(req)
 
 	if err != nil {
@@ -62,10 +87,9 @@ func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
 	case http.StatusOK:
 		return body, nil
 	default:
-		return nil, &UnexpectedStatusCode{
-			resp.StatusCode,
-			body,
-		}
+		err = &UnexpectedStatusCode{resp.StatusCode, body}
+		c.l.ErrorContext(ctx, err.Error())
+		return nil, err
 	}
 }
 
