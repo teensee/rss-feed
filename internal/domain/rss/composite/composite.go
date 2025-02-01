@@ -2,11 +2,12 @@ package composite
 
 import (
 	"context"
-	"encoding/xml"
+	"fmt"
 	"log/slog"
 	"net/url"
-	"rss-feed/pkg/cache"
+	"rss-feed/internal/domain/rss"
 	"rss-feed/pkg/http"
+	"sync"
 )
 
 type ProcessedFeed struct {
@@ -15,74 +16,108 @@ type ProcessedFeed struct {
 }
 
 type FeedItem struct {
-	Link  string
-	Title string
+	Link  string `json:"link,omitempty"`
+	Title string `json:"title,omitempty"`
+	Desc  string `json:"desc,omitempty"`
 }
 
 type CompositeRss struct {
-	feedList []url.URL
-	client   *http.Client
-	cache    cache.AppCache
-	l        *slog.Logger
+	fetcher    rss.Fetcher
+	processors []rss.Processor
+	l          *slog.Logger
 }
 
-func NewCompositeRss(feedList []url.URL, client *http.Client, cache cache.AppCache, l *slog.Logger) *CompositeRss {
-	return &CompositeRss{feedList: feedList, client: client, cache: cache, l: l}
+func NewCompositeRss(
+	fetcher rss.Fetcher,
+	processors []rss.Processor,
+	l *slog.Logger,
+) *CompositeRss {
+	return &CompositeRss{
+		fetcher:    fetcher,
+		processors: processors,
+		l:          l,
+	}
 }
 
-func (r *CompositeRss) Feed(ctx context.Context) ([]ProcessedFeed, error) {
-	var feeds []*http.RSS
-	for _, feedUrl := range r.feedList {
-		rss, err := r.fetch(ctx, feedUrl.String())
+func (r *CompositeRss) FeedAsync(ctx context.Context, urlList []*url.URL) ([]ProcessedFeed, error) {
+	var (
+		mu       sync.Mutex
+		wg       sync.WaitGroup
+		feedList []*http.RSS
+		errCh    = make(chan error, len(urlList))
+	)
 
-		if err != nil {
-			return nil, err
+	for _, feedUrl := range urlList {
+		if urlList == nil {
+			continue
 		}
 
-		feeds = append(feeds, rss)
+		wg.Add(1)
+
+		go func(path url.URL) {
+			defer wg.Done()
+
+			feed, err := r.fetcher.Fetch(ctx, path)
+
+			if err != nil {
+				errCh <- fmt.Errorf("fetch rss failed: %w, path=%s", err, path.String())
+				r.l.ErrorContext(ctx, "fetch rss failed", "path", path.String(), "err", err)
+				return
+			}
+
+			mu.Lock()
+			feedList = append(feedList, feed)
+			mu.Unlock()
+		}(*feedUrl)
 	}
 
-	processed := r.process(feeds)
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		// todo добавить доп логику обработки ошибок
+		r.l.WarnContext(ctx, "RSS fetch error", slog.Any("err", err))
+	}
+
+	processed := r.process(ctx, feedList)
 	return processed, nil
 }
 
-func (r *CompositeRss) fetch(ctx context.Context, url string) (*http.RSS, error) {
-	l := r.l.With(slog.String("url", url))
-	l.InfoContext(ctx, "fetching feed")
-
-	resp, err := r.client.GET(ctx, url, nil)
-	if err != nil {
-		l.ErrorContext(ctx, "fetch rss failed", slog.Any("err", err))
-		return nil, err
-	}
-
-	var rss http.RSS
-	err = xml.Unmarshal(resp, &rss)
-	if err != nil {
-		return nil, err
-	}
-
-	rss.XMLNSDC = "http://purl.org/dc/elements/1.1/"
-
-	return &rss, nil
-}
-
-func (r *CompositeRss) process(rssList []*http.RSS) []ProcessedFeed {
+func (r *CompositeRss) process(ctx context.Context, rssList []*http.RSS) []ProcessedFeed {
 	var processedFeedList []ProcessedFeed
 
-	for _, rss := range rssList {
-		items := *rss.Channel.Items
-		feed := make([]FeedItem, 0, len(items))
+	// Стоит вынести вложенный цикл. Сначала обрабатываем, потом маппим
+	for _, rssItem := range rssList {
+		var items *[]http.Item
 
-		for _, i := range items {
+		var err error
+		for _, processor := range r.processors {
+			r.l.DebugContext(ctx, fmt.Sprintf("Run %s", processor.Name()))
+			items, err = processor.Process(rssItem.Channel.Items)
+
+			if err != nil {
+				r.l.Error(fmt.Sprintf("processor: %s failed with error: %s", processor.Name(), err))
+				continue
+			}
+		}
+
+		if items == nil {
+			// todo fix nil pointer
+			continue
+		}
+
+		feed := make([]FeedItem, 0, len(*items))
+
+		for _, i := range *items {
 			feed = append(feed, FeedItem{
 				Title: i.Title,
 				Link:  i.Link,
+				Desc:  i.Description,
 			})
 		}
 
 		processedFeedList = append(processedFeedList, ProcessedFeed{
-			Source: rss.Channel.Title,
+			Source: rssItem.Channel.Title,
 			Feed:   feed,
 		})
 	}

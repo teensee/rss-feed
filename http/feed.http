@@ -1,0 +1,25 @@
+POST http://localhost:3003/api/feed
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "rss": "https://habr.com/ru/rss/articles/top?limit=5",
+      "filters": [
+        "html-sanitizer",
+        "max-length"
+      ]
+    },
+    {
+      "rss": "https://www.vedomosti.ru/rss/rubric/economics/global",
+      "filters": [
+        "html-sanitizer",
+        "max-length"
+      ]
+    }
+  ]
+}
+
+###
+
+

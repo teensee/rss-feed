@@ -12,7 +12,7 @@ import (
 )
 
 type Habr struct {
-	client *http.Client
+	client http.HttpClient
 	l      *slog.Logger
 	cache  cache.AppCache
 }
