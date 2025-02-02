@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"rss-feed/internal/domain/logging"
 	"time"
 )
 
@@ -52,10 +52,10 @@ type HttpClient interface {
 type Client struct {
 	baseUrl url.URL
 	c       *http.Client
-	l       *slog.Logger
+	l       logging.Logger
 }
 
-func NewClient(baseUrl url.URL, l *slog.Logger) HttpClient {
+func NewClient(baseUrl url.URL, l logging.Logger) HttpClient {
 	return &Client{
 		l:       l,
 		baseUrl: baseUrl,
@@ -67,8 +67,8 @@ func NewClient(baseUrl url.URL, l *slog.Logger) HttpClient {
 
 func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
 	req.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))])
+	c.l.Debug(ctx, fmt.Sprintf("Do %s", req.URL.String()), "headers", req.Header)
 
-	c.l.DebugContext(ctx, fmt.Sprintf("Do %s", req.URL.String()), "headers", req.Header)
 	resp, err := c.c.Do(req)
 
 	if err != nil {
@@ -88,7 +88,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
 		return body, nil
 	default:
 		err = &UnexpectedStatusCode{resp.StatusCode, body}
-		c.l.ErrorContext(ctx, err.Error())
+		c.l.Error(ctx, err.Error())
 		return nil, err
 	}
 }
@@ -101,7 +101,7 @@ func (c *Client) GET(ctx context.Context, relativePath string, headers map[strin
 
 	req, err := http.NewRequest(http.MethodGet, fullURL, nil)
 	if err != nil {
-		c.l.ErrorContext(ctx, fmt.Sprintf("Failed to create GET request for %s, error: %s", fullURL, err.Error()))
+		c.l.Error(ctx, fmt.Sprintf("Failed to create GET request for %s, error: %s", fullURL, err.Error()))
 		return nil, fmt.Errorf("failed to create GET request: %w", err)
 	}
 
@@ -133,14 +133,14 @@ func (c *Client) POST(ctx context.Context, relativePath string, body io.Reader, 
 func (c *Client) buildURL(ctx context.Context, relativePath string) (string, error) {
 	rel, err := url.Parse(relativePath)
 	if err != nil {
-		c.l.ErrorContext(ctx, fmt.Sprintf("invalid relative path: %s", err))
+		c.l.Error(ctx, fmt.Sprintf("invalid relative path: %s", err))
 		return "", fmt.Errorf("invalid relative path: %w", err)
 	}
 
 	fullURL := c.baseUrl.ResolveReference(rel)
 	resultUrl := fullURL.String()
 
-	c.l.DebugContext(ctx, fmt.Sprintf("result request url: %s", resultUrl))
+	c.l.Debug(ctx, fmt.Sprintf("result request url: %s", resultUrl))
 
 	return resultUrl, nil
 }

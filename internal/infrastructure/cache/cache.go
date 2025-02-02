@@ -5,7 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/patrickmn/go-cache"
-	"log/slog"
+	"rss-feed/internal/domain/logging"
 	"time"
 )
 
@@ -55,20 +55,20 @@ func (d *DummyCache) DoGet(_ context.Context, _ Key, _ time.Duration, fn CacheFn
 
 type GoCache struct {
 	cache *cache.Cache
-	l     *slog.Logger
+	l     logging.Logger
 }
 
-func NewGoCache(defaultExpiration, cleanupInterval time.Duration, l *slog.Logger) AppCache {
+func NewGoCache(defaultExpiration, cleanupInterval time.Duration, l logging.Logger) AppCache {
 	return &GoCache{cache: cache.New(defaultExpiration, cleanupInterval), l: l}
 }
 
 func (c *GoCache) Set(ctx context.Context, key Key, value interface{}, expiration time.Duration) {
-	c.l.DebugContext(ctx, fmt.Sprintf("Execute cache set with key: %s", key))
+	c.l.Debug(ctx, fmt.Sprintf("Execute cache set with key: %s", key))
 	c.cache.Set(key.String(), value, expiration)
 }
 
 func (c *GoCache) Get(ctx context.Context, key Key) (interface{}, bool) {
-	c.l.DebugContext(ctx, fmt.Sprintf("Execute cache get with key: %s", key))
+	c.l.Debug(ctx, fmt.Sprintf("Execute cache get with key: %s", key))
 	return c.cache.Get(key.String())
 }
 
@@ -79,7 +79,7 @@ func (c *GoCache) DoGet(ctx context.Context, key Key, exp time.Duration, fn Cach
 
 	res, err := fn()
 	if err != nil {
-		c.l.ErrorContext(ctx, fmt.Sprintf("Function return error: %s, for key: %s", err, key))
+		c.l.Error(ctx, fmt.Sprintf("Function return error: %s, for key: %s", err, key))
 		return nil, err
 	}
 
