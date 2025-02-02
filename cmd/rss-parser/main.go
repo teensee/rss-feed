@@ -1,6 +1,6 @@
 package main
 
-import "rss-feed/internal/app"
+import app "rss-feed/internal/infrastructure/kernel"
 
 func main() {
 	kernel := app.NewBuilder().

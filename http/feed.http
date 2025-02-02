@@ -7,14 +7,17 @@ Content-Type: application/json
       "rss": "https://habr.com/ru/rss/articles/top?limit=5",
       "filters": [
         "html-sanitizer",
-        "max-length"
+        "max-length",
+        "time-formatter-2006-01-02 15:04:05"
       ]
     },
     {
       "rss": "https://www.vedomosti.ru/rss/rubric/economics/global",
       "filters": [
         "html-sanitizer",
-        "max-length"
+        "max-length",
+        "size-of-8",
+        "time-formatter-2006-01-02 15:04:05"
       ]
     }
   ]
