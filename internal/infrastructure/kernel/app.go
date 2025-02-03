@@ -2,21 +2,25 @@ package app
 
 import (
 	"context"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"rss-feed/internal/application"
+	domainCache "rss-feed/internal/domain/cache"
 	"rss-feed/internal/domain/logging"
 	"rss-feed/internal/domain/rss"
 	"rss-feed/internal/infrastructure/cache"
+	"rss-feed/internal/infrastructure/cache/hasher"
 	http2 "rss-feed/internal/infrastructure/http"
 	"rss-feed/internal/infrastructure/logger"
 	"rss-feed/internal/infrastructure/processor"
 	rest "rss-feed/internal/interface/rest/handler"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type AppHandler interface {
@@ -26,7 +30,7 @@ type AppHandler interface {
 type Kernel struct {
 	log      logging.Logger
 	router   *chi.Mux
-	cache    cache.AppCache
+	cache    domainCache.AppCache
 	handlers map[string]AppHandler
 }
 
@@ -66,10 +70,10 @@ func (b *Builder) WithCache() *Builder {
 
 func (b *Builder) WithHandlers() *Builder {
 	handlers := make(map[string]AppHandler)
-	log := b.kernel.log
+	l := b.kernel.log
 	appCache := b.kernel.cache
 	if appCache == nil {
-		log.Info(context.TODO(), "Startup with dummy cache")
+		l.Info(context.TODO(), "Startup with dummy cache")
 		appCache = cache.NewDummyCache()
 	}
 
@@ -88,12 +92,12 @@ func (b *Builder) WithHandlers() *Builder {
 	registry := processor.NewProcessorRegistry(processors)
 
 	feedAggr := application.NewFeedService(
-		http2.NewFeedFetcher(http2.NewClient(url.URL{}, log), appCache, log),
+		http2.NewFeedFetcher(http2.NewClient(&url.URL{}, l), appCache, domainCache.NewHashGenerator(hasher.NewSha256Hasher()), l),
 		registry,
-		log,
+		l,
 	)
 
-	handlers["feed"] = rest.NewFeedHandler(feedAggr, log)
+	handlers["feed"] = rest.NewFeedHandler(feedAggr, l)
 	handlers["processors"] = rest.NewProcessorListHandler(registry)
 
 	b.kernel.handlers = handlers
@@ -128,5 +132,8 @@ func (b *Builder) Build() *Kernel {
 }
 
 func (a *Kernel) Run() {
-	http.ListenAndServe(":3003", a.router)
+	err := http.ListenAndServe(":3003", a.router) // nolint:gosec // не использую таймаут?
+	if err != nil {
+		log.Fatal(err)
+	}
 }

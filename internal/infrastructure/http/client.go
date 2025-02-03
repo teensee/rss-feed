@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -50,12 +51,12 @@ type HttpClient interface {
 }
 
 type Client struct {
-	baseUrl url.URL
+	baseUrl *url.URL
 	c       *http.Client
 	l       logging.Logger
 }
 
-func NewClient(baseUrl url.URL, l logging.Logger) HttpClient {
+func NewClient(baseUrl *url.URL, l logging.Logger) HttpClient {
 	return &Client{
 		l:       l,
 		baseUrl: baseUrl,
@@ -66,7 +67,7 @@ func NewClient(baseUrl url.URL, l logging.Logger) HttpClient {
 }
 
 func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
-	req.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))])
+	req.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))]) // nolint:gosec // изменить потом на crypto/rand
 	c.l.Debug(ctx, fmt.Sprintf("Do %s", req.URL.String()), "headers", req.Header)
 
 	resp, err := c.c.Do(req)
@@ -75,7 +76,11 @@ func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if err = resp.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 
@@ -99,7 +104,7 @@ func (c *Client) GET(ctx context.Context, relativePath string, headers map[strin
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, fullURL, nil)
+	req, err := http.NewRequest(http.MethodGet, fullURL, http.NoBody)
 	if err != nil {
 		c.l.Error(ctx, fmt.Sprintf("Failed to create GET request for %s, error: %s", fullURL, err.Error()))
 		return nil, fmt.Errorf("failed to create GET request: %w", err)

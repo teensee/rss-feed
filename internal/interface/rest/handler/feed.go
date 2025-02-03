@@ -81,7 +81,5 @@ func (h *FeedHandler) Handle(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(body)
-
-	return
+	_, _ = w.Write(body)
 }

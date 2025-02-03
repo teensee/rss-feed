@@ -22,10 +22,10 @@ type Image struct {
 	title string
 }
 
-func NewImage(link string, URL string, title string) *Image {
+func NewImage(link, url, title string) *Image {
 	return &Image{
 		link:  link,
-		uRL:   URL,
+		uRL:   url,
 		title: title,
 	}
 }
