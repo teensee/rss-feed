@@ -5,9 +5,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log/slog"
+	"rss-feed/internal/domain/cache"
 	"rss-feed/internal/domain/logging"
 	"rss-feed/internal/domain/rss"
-	"rss-feed/internal/infrastructure/cache"
 	"rss-feed/internal/infrastructure/http/dto"
 	"time"
 )
@@ -17,11 +17,17 @@ var _ rss.Fetcher = &Fetcher{}
 type Fetcher struct {
 	client HttpClient
 	cache  cache.AppCache
+	keyGen cache.KeyGenerator
 	l      logging.Logger
 }
 
-func NewFeedFetcher(client HttpClient, cache cache.AppCache, l logging.Logger) rss.Fetcher {
-	return &Fetcher{client: client, cache: cache, l: l}
+func NewFeedFetcher(client HttpClient, cache cache.AppCache, keyGen cache.KeyGenerator, l logging.Logger) rss.Fetcher {
+	return &Fetcher{
+		client: client,
+		cache:  cache,
+		keyGen: keyGen,
+		l:      l,
+	}
 }
 
 func (f *Fetcher) Fetch(ctx context.Context, url string) (*rss.Feed, error) {
@@ -29,7 +35,7 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (*rss.Feed, error) {
 
 	rssFeed, err := f.cache.DoGet(
 		ctx,
-		cache.NewMd5Key(url),
+		f.keyGen.FromString(url),
 		1*time.Minute,
 		func() (interface{}, error) {
 			return f.doFetch(ctx, url)

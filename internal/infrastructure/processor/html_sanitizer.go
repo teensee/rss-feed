@@ -1,9 +1,10 @@
 package processor
 
 import (
-	"github.com/microcosm-cc/bluemonday"
 	"rss-feed/internal/domain/rss"
 	"strings"
+
+	"github.com/microcosm-cc/bluemonday"
 )
 
 var _ rss.Processor = &HtmlSanitizer{}
