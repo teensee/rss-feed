@@ -62,5 +62,6 @@ func (c *GoCache) DoGet(ctx context.Context, key domainCache.Key, exp time.Durat
 	}
 
 	c.Set(ctx, key, res, exp)
+
 	return res, nil
 }

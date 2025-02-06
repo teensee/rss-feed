@@ -1,0 +1,82 @@
+openapi: 3.0.0
+info:
+  title: RssFeed Service Api
+  description: RssFeed Service Api
+  version: 1.0.0
+servers:
+  - url: 'https://localhost:3003'
+paths:
+  /api/feed:
+    get:
+      summary: Возвращает ленту новостей по заданным критериям
+      tags: [ "Feed" ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RssFeedRequest"
+      responses:
+        '200':
+          description: Done
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedListResponse'
+
+  #  /api/filter/processor:
+
+
+components:
+  schemas:
+    RssFeedRequest:
+      type: object
+      nullable: false
+      required: [ items ]
+      properties:
+        items:
+          minLength: 1
+          type: array
+          items:
+            $ref: '#/components/schemas/RssFeedItem'
+
+    RssFeedItem:
+      type: object
+      required:
+        - rss
+        - filters
+      properties:
+        rss:
+          type: string
+          nullable: false
+          example: https://google.com
+        filters:
+          type: array
+          nullable: false
+          items:
+            type: string
+            example: some-string-processor
+
+    FeedListResponse:
+      type: object
+      required: [ source, feed ]
+      properties:
+        source:
+          type: string
+          example: https://google.com
+        feed:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedListItemResponse'
+
+    FeedListItemResponse:
+      required: [ link, title, description, pubDate ]
+      type: object
+      properties:
+        link:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        pubDate:
+          type: string

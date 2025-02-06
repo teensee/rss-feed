@@ -33,30 +33,58 @@ type TimeFormatter struct {
 	format string
 }
 
+// NewTimeFormatter регистрирует 1 форматер
 func NewTimeFormatter(format string) *TimeFormatter {
 	return &TimeFormatter{format: format}
 }
 
+// NewTimeFormatters регистрирует все форматеры
 func NewTimeFormatters() []rss.Processor {
 	formatters := make([]rss.Processor, 0, len(availableFormats))
 	for _, format := range availableFormats {
 		formatters = append(formatters, NewTimeFormatter(format))
 	}
+
 	return formatters
 }
 
+// Name Возвращает текущий зарегистрированный формат
 func (t *TimeFormatter) Name() string {
 	return "time-formatter-" + t.format
 }
 
+// Process приводит дату к единому стилю
 func (t *TimeFormatter) Process(items []*rss.Item) ([]*rss.Item, error) {
-	for _, item := range items {
-		for _, layout := range availableFormats {
-			parsedTime, err := time.Parse(layout, item.PubDate)
-			if err == nil {
-				item.PubDate = parsedTime.Format(t.format)
-				break
+	var correctLayout string
+
+	for i, item := range items {
+		if correctLayout == "" {
+			// try check expected time format is the current time format
+			if _, err := time.Parse(t.format, item.GetPubDate()); err == nil {
+				continue
 			}
+
+			for _, layout := range availableFormats {
+				_, err := time.Parse(layout, item.GetPubDate())
+				if err == nil {
+					correctLayout = layout
+					break
+				}
+			}
+		}
+
+		parsedTime, err := time.Parse(correctLayout, item.GetPubDate())
+		if err == nil {
+			items[i] = rss.NewItem(
+				items[i].GetTitle(),
+				items[i].GetLink(),
+				items[i].GetDescription(),
+				parsedTime.Format(t.format),
+				items[i].GetCreator(),
+				items[i].GetCategories(),
+			)
+		} else {
+			correctLayout = ""
 		}
 	}
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"rss-feed/internal/domain/logging"
+	"rss-feed/internal/interfaces/rest/middleware"
 	"time"
 )
 
@@ -56,18 +57,17 @@ type Client struct {
 	l       logging.Logger
 }
 
-func NewClient(baseUrl *url.URL, l logging.Logger) HttpClient {
+func NewClient(baseUrl *url.URL, timeout time.Duration, l logging.Logger) HttpClient {
 	return &Client{
 		l:       l,
 		baseUrl: baseUrl,
 		c: &http.Client{
-			Timeout: time.Minute,
+			Timeout: timeout,
 		},
 	}
 }
 
-func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
-	req.Header.Add("User-Agent", userAgents[rand.Intn(len(userAgents))]) // nolint:gosec // изменить потом на crypto/rand
+func (c *Client) do(ctx context.Context, req *http.Request) ([]byte, error) {
 	c.l.Debug(ctx, fmt.Sprintf("Do %s", req.URL.String()), "headers", req.Header)
 
 	resp, err := c.c.Do(req)
@@ -94,8 +94,24 @@ func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
 	default:
 		err = &UnexpectedStatusCode{resp.StatusCode, body}
 		c.l.Error(ctx, err.Error())
+
 		return nil, err
 	}
+}
+
+func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
+	req.Header.Set("User-Agent", userAgents[rand.Intn(len(userAgents))]) // nolint:gosec // изменить потом на crypto/rand
+
+	if req.Header.Get(middleware.TraceIdHeader.ToString()) == "" {
+		if v, ok := ctx.Value(middleware.TraceIdHeader.ToString()).(string); ok {
+			req.Header.Set(
+				middleware.TraceIdHeader.ToString(),
+				v,
+			)
+		}
+	}
+
+	return c.do(ctx, req)
 }
 
 func (c *Client) GET(ctx context.Context, relativePath string, headers map[string]string) ([]byte, error) {
