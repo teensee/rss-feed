@@ -23,8 +23,20 @@ func (h *HtmlSanitizer) Name() string {
 
 func (h *HtmlSanitizer) Process(items []*rss.Item) ([]*rss.Item, error) {
 	for i := range items {
-		items[i].Title = h.policy.Sanitize(items[i].Title)
-		items[i].Description = strings.TrimLeft(h.policy.Sanitize(items[i].Description), "\n")
+		var newTitle, newDescription string
+
+		currItem := items[i]
+		newTitle = h.policy.Sanitize(currItem.GetTitle())
+		newDescription = strings.TrimLeft(h.policy.Sanitize(currItem.GetDescription()), "\n")
+
+		items[i] = rss.NewItem(
+			newTitle,
+			currItem.GetLink(),
+			newDescription,
+			currItem.GetPubDate(),
+			currItem.GetCreator(),
+			currItem.GetCategories(),
+		)
 	}
 
 	return items, nil

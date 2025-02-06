@@ -1,4 +1,4 @@
-package app
+package kernel
 
 import (
 	"context"
@@ -13,10 +13,11 @@ import (
 	"rss-feed/internal/domain/rss"
 	"rss-feed/internal/infrastructure/cache"
 	"rss-feed/internal/infrastructure/cache/hasher"
-	http2 "rss-feed/internal/infrastructure/http"
+	transport "rss-feed/internal/infrastructure/http"
 	"rss-feed/internal/infrastructure/logger"
 	"rss-feed/internal/infrastructure/processor"
-	rest "rss-feed/internal/interface/rest/handler"
+	rest "rss-feed/internal/interfaces/rest/handler"
+	mw "rss-feed/internal/interfaces/rest/middleware"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -47,11 +48,14 @@ func NewBuilder() *Builder {
 func (b *Builder) WithLogger() *Builder {
 	b.kernel.log = logger.NewSlogAdapter(
 		slog.New(
-			slog.NewTextHandler(
-				os.Stdout,
-				&slog.HandlerOptions{
-					Level: slog.LevelDebug,
-				}),
+			logger.NewTraceIdSlogHandler(
+				logger.NewSlogPrettyHandler(
+					os.Stdout,
+					&slog.HandlerOptions{
+						Level: slog.LevelDebug,
+					},
+				),
+			),
 		),
 	)
 
@@ -69,11 +73,12 @@ func (b *Builder) WithCache() *Builder {
 }
 
 func (b *Builder) WithHandlers() *Builder {
-	handlers := make(map[string]AppHandler)
 	l := b.kernel.log
 	appCache := b.kernel.cache
+
 	if appCache == nil {
 		l.Info(context.TODO(), "Startup with dummy cache")
+
 		appCache = cache.NewDummyCache()
 	}
 
@@ -92,15 +97,21 @@ func (b *Builder) WithHandlers() *Builder {
 	registry := processor.NewProcessorRegistry(processors)
 
 	feedAggr := application.NewFeedService(
-		http2.NewFeedFetcher(http2.NewClient(&url.URL{}, l), appCache, domainCache.NewHashGenerator(hasher.NewSha256Hasher()), l),
+		transport.NewFeedFetcher(
+			transport.NewClient(&url.URL{}, 30*time.Second, l),
+			appCache,
+			domainCache.NewHashGenerator(hasher.NewSha256Hasher()),
+			l,
+		),
 		registry,
 		l,
 	)
 
-	handlers["feed"] = rest.NewFeedHandler(feedAggr, l)
-	handlers["processors"] = rest.NewProcessorListHandler(registry)
+	b.kernel.handlers = map[string]AppHandler{
+		"feed":       rest.NewFeedHandler(feedAggr, l),
+		"processors": rest.NewProcessorListHandler(registry),
+	}
 
-	b.kernel.handlers = handlers
 	return b
 }
 
@@ -112,9 +123,13 @@ func (b *Builder) WithEndpoints() *Builder {
 	r := chi.NewRouter()
 
 	r.Use(
+		mw.TraceId,
+
 		middleware.RealIP,
 		middleware.Logger,
 		middleware.Recoverer,
+
+		middleware.Heartbeat("/ping"),
 	)
 
 	r.Route("/api", func(r chi.Router) {

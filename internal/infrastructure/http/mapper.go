@@ -13,29 +13,26 @@ func toDomainModel(r *dto.RSS) *rss.Feed {
 	}
 
 	var modelItems []*rss.Item
+
 	if r.Channel.Items != nil && len(*r.Channel.Items) > 0 {
 		for _, item := range *r.Channel.Items {
-			modelItems = append(modelItems, &rss.Item{
-				Title:       item.Title,
-				Link:        item.Link,
-				Description: item.Description,
-				PubDate:     item.PubDate,
-				Creator:     item.Creator,
-				Categories:  item.Categories,
-			})
+			modelItems = append(modelItems, rss.NewItem(
+				item.Title,
+				item.Link,
+				item.Description,
+				item.PubDate,
+				item.Creator,
+				item.Categories,
+			))
 		}
 	}
 
-	return &rss.Feed{
-		XMLName: r.XMLName.Local,
-		Version: r.Version,
-		XMLNSDC: r.XMLNSDC,
-		Channel: &rss.Channel{
-			Title:   r.Channel.Title,
-			Link:    r.Channel.Link,
-			PubDate: r.Channel.PubDate,
-			Image:   image,
-			Items:   modelItems,
-		},
-	}
+	return rss.NewFeed(
+		r.Channel.Title,
+		r.Channel.Link,
+		r.Channel.Description,
+		r.Channel.PubDate,
+		image,
+		modelItems,
+	)
 }

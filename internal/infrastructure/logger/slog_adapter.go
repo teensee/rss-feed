@@ -20,6 +20,7 @@ func (s *SlogAdapter) log(ctx context.Context, level slog.Level, msg string, arg
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
 	s.l.Log(ctx, level, msg, args...)
 }
 

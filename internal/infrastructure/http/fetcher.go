@@ -57,11 +57,11 @@ func (f *Fetcher) doFetch(ctx context.Context, url string) (interface{}, error) 
 	}
 
 	var rssFeed dto.RSS
+
 	err = xml.Unmarshal(resp, &rssFeed)
 	if err != nil {
 		return nil, err
 	}
 
-	rssFeed.XMLNSDC = "http://purl.org/dc/elements/1.1/"
 	return &rssFeed, nil
 }

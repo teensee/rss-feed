@@ -29,3 +29,5 @@ vendor
 build
 tmp
 .idea
+
+internal/interfaces/rest/dto/models.gen.go

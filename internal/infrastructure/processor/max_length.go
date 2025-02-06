@@ -41,8 +41,18 @@ func (h *MaxLengthProcessor) Name() string {
 }
 
 func (h *MaxLengthProcessor) Process(items []*rss.Item) ([]*rss.Item, error) {
-	for i := range items {
-		items[i].Description = h.Truncate(items[i].Description)
+	for i, item := range items {
+		truncatedDesc := h.Truncate(item.GetDescription())
+		if truncatedDesc != item.GetDescription() {
+			items[i] = rss.NewItem(
+				item.GetTitle(),
+				item.GetLink(),
+				truncatedDesc,
+				item.GetPubDate(),
+				item.GetCreator(),
+				item.GetCategories(),
+			)
+		}
 	}
 
 	return items, nil

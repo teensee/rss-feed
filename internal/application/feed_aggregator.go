@@ -10,6 +10,8 @@ import (
 	"sync"
 )
 
+const maxGoroutines = 8
+
 type FeedAggregator struct {
 	fetcher  rss.Fetcher
 	registry rss.ProcessorRegistry
@@ -30,16 +32,19 @@ func NewFeedService(
 
 func (s *FeedAggregator) AggregateFeedAsync(
 	ctx context.Context,
-	req appDto.AppRssFeedRequest,
+	req *appDto.AppRssFeedRequest,
 ) ([]*rss.Feed, error) {
 	var (
 		mu       sync.Mutex
 		wg       sync.WaitGroup
 		feedList []*rss.Feed
 		errCh    = make(chan error, len(req.Items))
+		guard    = make(chan struct{}, maxGoroutines)
 	)
 
 	for _, feedItem := range req.Items {
+		guard <- struct{}{}
+
 		wg.Add(1)
 
 		go func(feedItem *appDto.RssFeedItemProcess) {
@@ -50,13 +55,17 @@ func (s *FeedAggregator) AggregateFeedAsync(
 
 			if err != nil {
 				errCh <- fmt.Errorf("fetch rss failed: %w, path=%s", err, path)
+
 				s.l.Error(ctx, "fetch rss failed", "path", path, "err", err)
+
 				return
 			}
 
 			mu.Lock()
 			feedList = append(feedList, feed)
 			mu.Unlock()
+
+			<-guard
 		}(feedItem)
 	}
 
@@ -82,19 +91,19 @@ func (s *FeedAggregator) doAggregate(ctx context.Context, path string, procList 
 		return nil, nil
 	}
 
-	processedItems, err := s.processItems(ctx, feed.Channel.Items, procList)
+	processedItems, err := s.processItems(ctx, feed.GetItems(), procList)
 	if err != nil {
 		s.l.Warn(ctx, "error processing items", slog.Any("err", err))
 	}
 
-	return &rss.Feed{
-		Channel: &rss.Channel{
-			Title:       feed.Channel.Title,
-			Link:        feed.Channel.Link,
-			Description: feed.Channel.Description,
-			Items:       processedItems,
-		},
-	}, nil
+	return rss.NewFeed(
+		feed.GetTitle(),
+		feed.GetLink(),
+		feed.GetDescription(),
+		feed.GetPubDate(),
+		feed.GetImage(),
+		processedItems,
+	), nil
 }
 
 func (s *FeedAggregator) processItems(ctx context.Context, items []*rss.Item, procList []string) ([]*rss.Item, error) {
@@ -108,10 +117,12 @@ func (s *FeedAggregator) processItems(ctx context.Context, items []*rss.Item, pr
 		}
 
 		newItems, err := proc.Process(items)
+
 		if err != nil {
 			errList = append(errList, fmt.Errorf("processor %s failed: %w", slug, err))
 			continue
 		}
+
 		items = newItems
 	}
 
