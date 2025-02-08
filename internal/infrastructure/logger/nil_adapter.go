@@ -2,15 +2,12 @@ package logger
 
 import (
 	"context"
-	"log/slog"
 	"rss-feed/internal/domain/logging"
 )
 
 var _ logging.Logger = &NilAdapter{}
 
-type NilAdapter struct {
-	l *slog.Logger
-}
+type NilAdapter struct{}
 
 func NewNilAdapter() *NilAdapter {
 	return &NilAdapter{}

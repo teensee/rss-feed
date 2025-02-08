@@ -4,10 +4,10 @@ WORKDIR /app
 
 COPY . .
 
-RUN go clean --modcache
-RUN go mod tidy
-RUN cd internal/interfaces/rest/dto && go generate
-RUN apt update && apt upgrade
+RUN go clean --modcache && \
+    go mod tidy && \
+    cd internal/interfaces/rest/dto && go generate && \
+    apt update -y && apt upgrade -y
 
 RUN GOOS=linux GOARCH=amd64 go build -a -tags musl -a -installsuffix cgo -o rss-feed cmd/rss-parser/main.go
 
@@ -16,6 +16,7 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 
 COPY --from=builder /app/rss-feed /rss-feed
+COPY --from=builder /app/docs/feed-api.yaml /docs/feed-api.yaml
 
 EXPOSE 8081
 

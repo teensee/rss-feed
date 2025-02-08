@@ -16,5 +16,5 @@ tidy:
 push: tidy generate lint tests
 
 buildup:
-	docker build -t rss-feed -f ./docker/Dockerfile  .
+	docker build -t rss-feed -f ./docker/golang/Dockerfile  .
 	docker run -p 8081:3003 rss-feed
