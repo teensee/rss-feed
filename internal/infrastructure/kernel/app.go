@@ -140,6 +140,7 @@ func (b *Builder) WithHandlers() *Builder {
 	b.kernel.handlers = map[string]AppHandler{
 		"feed":       rest.NewFeedHandler(feedAggr, l),
 		"processors": rest.NewProcessorListHandler(registry),
+		"rawDoc":     rest.NewRawDocHandler(),
 	}
 
 	return b
@@ -163,6 +164,13 @@ func (b *Builder) WithEndpoints() *Builder {
 		middleware.Heartbeat("/ping"),
 	)
 
+	r.Route("/raw-doc", func(r chi.Router) {
+		r.Get("/", func(writer http.ResponseWriter, request *http.Request) {
+			b.kernel.handlers["rawDoc"].Handle(writer, request)
+		})
+		r.Get("/{type}", b.kernel.handlers["rawDoc"].Handle)
+	})
+
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/feed", b.kernel.handlers["feed"].Handle)
 		r.Get("/feed/processors", b.kernel.handlers["processors"].Handle)
@@ -181,6 +189,7 @@ func (b *Builder) Build() *kernel {
 // Run запуск сервера
 func (a *kernel) Run() {
 	a.log.Info(context.Background(), "Startup server")
+
 	err := http.ListenAndServe(":3003", a.router) // nolint:gosec // не использую таймаут?
 	if err != nil {
 		log.Fatal(err)

@@ -71,6 +71,5 @@ func BenchmarkTimeFormatter_Process(b *testing.B) {
 		testItems := make([]*rss.Item, len(items))
 		copy(testItems, items)
 		_, _ = formatter.Process(testItems)
-
 	}
 }
