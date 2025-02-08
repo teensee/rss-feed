@@ -24,29 +24,50 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+// AppHandler http-handler для обработки запросов
 type AppHandler interface {
 	Handle(w http.ResponseWriter, r *http.Request)
 }
 
-type Kernel struct {
+// kernel структура представляющая само ядро проекта
+type kernel struct {
 	log      logging.Logger
 	router   *chi.Mux
 	cache    domainCache.AppCache
 	handlers map[string]AppHandler
 }
 
+// Builder строитель ядра проекта.
 type Builder struct {
-	kernel *Kernel
+	kernel *kernel
 }
 
+// NewBuilder - конструктор билдера
 func NewBuilder() *Builder {
+	k := &kernel{
+		cache:    cache.NewDummyCache(),
+		handlers: make(map[string]AppHandler),
+		log: logger.NewSlogAdapter(
+			slog.New(
+				slog.NewTextHandler(
+					os.Stdout, &slog.HandlerOptions{
+						AddSource:   true,
+						Level:       slog.LevelDebug,
+						ReplaceAttr: nil,
+					},
+				),
+			),
+		),
+	}
+
 	return &Builder{
-		kernel: &Kernel{},
+		kernel: k,
 	}
 }
 
-func (b *Builder) WithLogger() *Builder {
-	b.kernel.log =
+// WithPrettySlogTracingLogger Инициализирует pretty-slog логгер в проект
+func (b *Builder) WithPrettySlogTracingLogger() *Builder {
+	b.WithCustomLogger(
 		logger.NewSlogAdapter(
 			slog.New(
 				logger.NewTraceIdSlogHandler(
@@ -59,12 +80,21 @@ func (b *Builder) WithLogger() *Builder {
 					),
 				),
 			),
-		)
+		),
+	)
 
 	return b
 }
 
-func (b *Builder) WithCache() *Builder {
+// WithCustomLogger Устанавливает любой логгер
+func (b *Builder) WithCustomLogger(logger logging.Logger) *Builder {
+	b.kernel.log = logger
+
+	return b
+}
+
+// WithGoCache Инициализирует in-memory cache
+func (b *Builder) WithGoCache() *Builder {
 	b.kernel.cache = cache.NewGoCache(
 		5*time.Minute,
 		30*time.Minute,
@@ -74,15 +104,10 @@ func (b *Builder) WithCache() *Builder {
 	return b
 }
 
+// WithHandlers Инициализирует хендлеры и зависимости
 func (b *Builder) WithHandlers() *Builder {
 	l := b.kernel.log
 	appCache := b.kernel.cache
-
-	if appCache == nil {
-		l.Info(context.TODO(), "Startup with dummy cache")
-
-		appCache = cache.NewDummyCache()
-	}
 
 	processors := []rss.Processor{
 		processor.NewHtmlSanitizer(),
@@ -120,6 +145,7 @@ func (b *Builder) WithHandlers() *Builder {
 	return b
 }
 
+// WithEndpoints инициализирует роутер
 func (b *Builder) WithEndpoints() *Builder {
 	if len(b.kernel.handlers) == 0 {
 		panic("call WithHandlers first")
@@ -147,11 +173,13 @@ func (b *Builder) WithEndpoints() *Builder {
 	return b
 }
 
-func (b *Builder) Build() *Kernel {
+// Build Возвращает готовый	образ ядра
+func (b *Builder) Build() *kernel {
 	return b.kernel
 }
 
-func (a *Kernel) Run() {
+// Run запуск сервера
+func (a *kernel) Run() {
 	a.log.Info(context.Background(), "Startup server")
 	err := http.ListenAndServe(":3003", a.router) // nolint:gosec // не использую таймаут?
 	if err != nil {

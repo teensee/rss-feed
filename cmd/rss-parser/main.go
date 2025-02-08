@@ -4,8 +4,8 @@ import app "rss-feed/internal/infrastructure/kernel"
 
 func main() {
 	kernel := app.NewBuilder().
-		WithLogger().
-		WithCache().
+		WithPrettySlogTracingLogger().
+		WithGoCache().
 		WithHandlers().
 		WithEndpoints().
 		Build()
