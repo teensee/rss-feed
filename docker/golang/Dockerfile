@@ -9,7 +9,7 @@ RUN go clean --modcache && \
     cd internal/interfaces/rest/dto && go generate && \
     apt update -y && apt upgrade -y
 
-RUN GOOS=linux GOARCH=amd64 go build -a -tags musl -a -installsuffix cgo -o rss-feed cmd/rss-parser/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -tags musl -a -installsuffix cgo -o rss-feed cmd/rss-parser/main.go
 
 FROM alpine:latest
 
