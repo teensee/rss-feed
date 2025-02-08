@@ -3,7 +3,7 @@ module rss-feed
 go 1.22
 
 require (
-	github.com/go-chi/chi/v5 v5.2.0
+	github.com/go-chi/chi/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
