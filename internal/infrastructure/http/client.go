@@ -102,10 +102,10 @@ func (c *Client) do(ctx context.Context, req *http.Request) ([]byte, error) {
 func (c *Client) Do(ctx context.Context, req *http.Request) ([]byte, error) {
 	req.Header.Set("User-Agent", userAgents[rand.Intn(len(userAgents))]) // nolint:gosec // изменить потом на crypto/rand
 
-	if req.Header.Get(middleware.TraceIdHeader.ToString()) == "" {
-		if v, ok := ctx.Value(middleware.TraceIdHeader.ToString()).(string); ok {
+	if req.Header.Get(middleware.TraceIdHeader.String()) == "" {
+		if v, ok := ctx.Value(middleware.TraceIdHeader.String()).(string); ok {
 			req.Header.Set(
-				middleware.TraceIdHeader.ToString(),
+				middleware.TraceIdHeader.String(),
 				v,
 			)
 		}
@@ -164,4 +164,41 @@ func (c *Client) buildURL(ctx context.Context, relativePath string) (string, err
 	c.l.Debug(ctx, fmt.Sprintf("result request url: %s", resultUrl))
 
 	return resultUrl, nil
+}
+
+type TracingClient struct {
+	inner HttpClient
+	l     logging.Logger
+}
+
+func NewTracingClient(inner HttpClient, l logging.Logger) *TracingClient {
+	return &TracingClient{inner: inner, l: l}
+}
+
+func (t *TracingClient) Do(ctx context.Context, req *http.Request) ([]byte, error) {
+	return t.measure(ctx, req.URL.String(), func() ([]byte, error) {
+		return t.inner.Do(ctx, req)
+	})
+}
+
+func (t *TracingClient) GET(ctx context.Context, relativePath string, headers map[string]string) ([]byte, error) {
+	return t.measure(ctx, relativePath, func() ([]byte, error) {
+		return t.inner.GET(ctx, relativePath, headers)
+	})
+}
+
+func (t *TracingClient) POST(ctx context.Context, relativePath string, body io.Reader, headers map[string]string) ([]byte, error) {
+	return t.measure(ctx, relativePath, func() ([]byte, error) {
+		return t.inner.POST(ctx, relativePath, body, headers)
+	})
+}
+
+func (t *TracingClient) measure(ctx context.Context, path string, fn func() ([]byte, error)) ([]byte, error) {
+	now := time.Now()
+	resp, err := fn()
+	elapsed := time.Since(now)
+
+	t.l.Info(ctx, fmt.Sprintf("Request to: %s elapsed time: %s", path, elapsed.String()))
+
+	return resp, err
 }

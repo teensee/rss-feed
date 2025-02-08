@@ -6,8 +6,8 @@ import (
 	"rss-feed/internal/interfaces/rest/dto"
 )
 
-func ToAppRssFeedRequest(req dto.RssFeedRequest) (*appDto.AppRssFeedRequest, error) {
-	appReq := appDto.AppRssFeedRequest{}
+func ToAppRssFeedRequest(req dto.GetFeedJSONRequestBody) (*appDto.AppRssFeedRequest, error) {
+	var items = make([]*appDto.RssFeedItemProcess, 0, len(req.Items))
 
 	for _, item := range req.Items {
 		u, err := url.Parse(item.Rss)
@@ -15,11 +15,8 @@ func ToAppRssFeedRequest(req dto.RssFeedRequest) (*appDto.AppRssFeedRequest, err
 			return nil, err
 		}
 
-		appReq.Items = append(appReq.Items, &appDto.RssFeedItemProcess{
-			Rss:     u.String(),
-			Filters: item.Filters,
-		})
+		items = append(items, appDto.NewRssFeedItemProcess(u.String(), item.Filters))
 	}
 
-	return &appReq, nil
+	return appDto.NewAppRssFeedRequest(items), nil
 }

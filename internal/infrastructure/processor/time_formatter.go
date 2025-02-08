@@ -55,7 +55,7 @@ func (t *TimeFormatter) Name() string {
 
 // Process приводит дату к единому стилю
 func (t *TimeFormatter) Process(items []*rss.Item) ([]*rss.Item, error) {
-	var correctLayout string
+	correctLayout := ""
 
 	for i, item := range items {
 		if correctLayout == "" {
@@ -76,12 +76,12 @@ func (t *TimeFormatter) Process(items []*rss.Item) ([]*rss.Item, error) {
 		parsedTime, err := time.Parse(correctLayout, item.GetPubDate())
 		if err == nil {
 			items[i] = rss.NewItem(
-				items[i].GetTitle(),
-				items[i].GetLink(),
-				items[i].GetDescription(),
+				item.GetTitle(),
+				item.GetLink(),
+				item.GetDescription(),
 				parsedTime.Format(t.format),
-				items[i].GetCreator(),
-				items[i].GetCategories(),
+				item.GetCreator(),
+				item.GetCategories(),
 			)
 		} else {
 			correctLayout = ""

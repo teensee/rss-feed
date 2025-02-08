@@ -22,7 +22,7 @@ func NewFeedHandler(agg *application.FeedAggregator, l logging.Logger) *FeedHand
 }
 
 func (h *FeedHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	var req dto.RssFeedRequest
+	var req dto.GetFeedJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

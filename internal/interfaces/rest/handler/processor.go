@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"rss-feed/internal/domain/rss"
+	"rss-feed/internal/interfaces/rest/adapters"
 )
 
 type ProcessorListHandler struct {
@@ -14,8 +15,11 @@ func NewProcessorListHandler(registry rss.ProcessorRegistry) *ProcessorListHandl
 	return &ProcessorListHandler{registry: registry}
 }
 
-func (p *ProcessorListHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	res, err := json.Marshal(p.registry.Names())
+func (p *ProcessorListHandler) Handle(w http.ResponseWriter, _ *http.Request) {
+	res, err := json.Marshal(
+		adapters.ToProcessorResponseList(p.registry.Names()),
+	)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -11,7 +11,7 @@ type traceIdKey string
 
 const TraceIdHeader traceIdKey = "X-Trace-Id"
 
-func (k traceIdKey) ToString() string {
+func (k traceIdKey) String() string {
 	return string(k)
 }
 

@@ -46,18 +46,20 @@ func NewBuilder() *Builder {
 }
 
 func (b *Builder) WithLogger() *Builder {
-	b.kernel.log = logger.NewSlogAdapter(
-		slog.New(
-			logger.NewTraceIdSlogHandler(
-				logger.NewSlogPrettyHandler(
-					os.Stdout,
-					&slog.HandlerOptions{
-						Level: slog.LevelDebug,
-					},
+	b.kernel.log =
+		logger.NewSlogAdapter(
+			slog.New(
+				logger.NewTraceIdSlogHandler(
+					logger.NewSlogPrettyHandler(
+						os.Stdout,
+						&slog.HandlerOptions{
+							Level: slog.LevelDebug,
+						},
+						true,
+					),
 				),
 			),
-		),
-	)
+		)
 
 	return b
 }
@@ -98,7 +100,10 @@ func (b *Builder) WithHandlers() *Builder {
 
 	feedAggr := application.NewFeedService(
 		transport.NewFeedFetcher(
-			transport.NewClient(&url.URL{}, 30*time.Second, l),
+			transport.NewTracingClient(
+				transport.NewClient(&url.URL{}, 30*time.Second, l),
+				l,
+			),
 			appCache,
 			domainCache.NewHashGenerator(hasher.NewSha256Hasher()),
 			l,
@@ -134,7 +139,7 @@ func (b *Builder) WithEndpoints() *Builder {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/feed", b.kernel.handlers["feed"].Handle)
-		r.Get("/filter/processor", b.kernel.handlers["processors"].Handle)
+		r.Get("/feed/processors", b.kernel.handlers["processors"].Handle)
 	})
 
 	b.kernel.router = r
@@ -147,6 +152,7 @@ func (b *Builder) Build() *Kernel {
 }
 
 func (a *Kernel) Run() {
+	a.log.Info(context.Background(), "Startup server")
 	err := http.ListenAndServe(":3003", a.router) // nolint:gosec // не использую таймаут?
 	if err != nil {
 		log.Fatal(err)

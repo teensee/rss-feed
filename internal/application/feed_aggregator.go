@@ -38,11 +38,11 @@ func (s *FeedAggregator) AggregateFeedAsync(
 		mu       sync.Mutex
 		wg       sync.WaitGroup
 		feedList []*rss.Feed
-		errCh    = make(chan error, len(req.Items))
+		errCh    = make(chan error, len(req.GetItems()))
 		guard    = make(chan struct{}, maxGoroutines)
 	)
 
-	for _, feedItem := range req.Items {
+	for _, feedItem := range req.GetItems() {
 		guard <- struct{}{}
 
 		wg.Add(1)
@@ -50,8 +50,8 @@ func (s *FeedAggregator) AggregateFeedAsync(
 		go func(feedItem *appDto.RssFeedItemProcess) {
 			defer wg.Done()
 
-			path := feedItem.Rss
-			feed, err := s.doAggregate(ctx, path, feedItem.Filters)
+			path := feedItem.GetRss()
+			feed, err := s.doAggregate(ctx, path, feedItem.GetFilters())
 
 			if err != nil {
 				errCh <- fmt.Errorf("fetch rss failed: %w, path=%s", err, path)
