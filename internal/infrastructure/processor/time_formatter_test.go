@@ -61,13 +61,16 @@ func BenchmarkTimeFormatter_Process(b *testing.B) {
 
 	var items []*rss.Item
 
-	for i := 0; i < 10_000; i++ {
+	for i := 0; i < 1_000; i++ {
 		items = append(items, rss.NewItem("Test Title", "http://example.com", "Test Description", formattedDate, "Author", []string{"Tech"}))
 	}
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, _ = formatter.Process(items)
+		testItems := make([]*rss.Item, len(items))
+		copy(testItems, items)
+		_, _ = formatter.Process(testItems)
+
 	}
 }

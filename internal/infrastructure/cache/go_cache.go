@@ -10,26 +10,7 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
-// compile time interface checks
 var _ domainCache.AppCache = &GoCache{}
-var _ domainCache.AppCache = &DummyCache{}
-
-type DummyCache struct{}
-
-func NewDummyCache() domainCache.AppCache {
-	return &DummyCache{}
-}
-
-func (d *DummyCache) Set(_ context.Context, _ domainCache.Key, _ interface{}, _ time.Duration) {
-}
-
-func (d *DummyCache) Get(_ context.Context, _ domainCache.Key) (interface{}, bool) {
-	return nil, false
-}
-
-func (d *DummyCache) DoGet(_ context.Context, _ domainCache.Key, _ time.Duration, fn domainCache.CacheFn) (interface{}, error) {
-	return fn()
-}
 
 type GoCache struct {
 	cache *cache.Cache

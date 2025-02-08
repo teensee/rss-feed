@@ -5,8 +5,8 @@ import (
 	"rss-feed/internal/interfaces/rest/dto"
 )
 
-func ToRssResponseList(feed []*rss.Feed) []dto.FeedListResponse {
-	var resp = make([]dto.FeedListResponse, 0, len(feed))
+func ToRssResponseList(feed []*rss.Feed) dto.FeedListResponse {
+	var items = make([]dto.FeedListObject, 0, len(feed))
 
 	for _, f := range feed {
 		var newsList = make([]dto.FeedListItemResponse, 0, len(f.GetItems()))
@@ -19,11 +19,19 @@ func ToRssResponseList(feed []*rss.Feed) []dto.FeedListResponse {
 			})
 		}
 
-		resp = append(resp, dto.FeedListResponse{
-			Source: f.GetTitle(),
+		items = append(items, dto.FeedListObject{
+			Source: f.GetLink(),
 			Feed:   newsList,
 		})
 	}
 
-	return resp
+	return dto.FeedListResponse{
+		Items: items,
+	}
+}
+
+func ToProcessorResponseList(processorList []string) dto.ProcessorListResponse {
+	return dto.ProcessorListResponse{
+		Items: processorList,
+	}
 }

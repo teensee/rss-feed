@@ -4,9 +4,9 @@ info:
   description: RssFeed Service Api
   version: 1.0.0
 servers:
-  - url: 'https://localhost:3003'
+  - url: 'https://localhost:3003/api'
 paths:
-  /api/feed:
+  /feed:
     get:
       summary: Возвращает ленту новостей по заданным критериям
       tags: [ "Feed" ]
@@ -16,14 +16,24 @@ paths:
             schema:
               $ref: "#/components/schemas/RssFeedRequest"
       responses:
-        '200':
+        200:
           description: Done
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FeedListResponse'
 
-  #  /api/filter/processor:
+  /feed/processors:
+    get:
+      summary: возвращает доступные зарегистрированные фильтры
+      tags: [ "Feed" ]
+      responses:
+        200:
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessorListResponse'
 
 
 components:
@@ -58,6 +68,14 @@ components:
 
     FeedListResponse:
       type: object
+      required: [ items ]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedListObject'
+
+    FeedListObject:
       required: [ source, feed ]
       properties:
         source:
@@ -80,3 +98,13 @@ components:
           type: string
         pubDate:
           type: string
+
+    ProcessorListResponse:
+      type: object
+      required: [ items ]
+      properties:
+        items:
+          type: array
+          items:
+            type: string
+            example: 'max-length'
