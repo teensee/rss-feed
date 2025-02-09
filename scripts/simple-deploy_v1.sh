@@ -37,7 +37,13 @@ ssh -tt -p $SSH_PORT $SSH_USER@$SSH_HOST << EOF
     docker pull $DOCKERHUB_USER/$IMAGE_NAME:$TAG
 
     echo "🚀 Запуск нового контейнера..."
-    docker run -d --rm --name $CONTAINER_NAME -p $DOCKER_RSS_PORT:$DOCKER_RSS_INTERNAL_PORT $DOCKERHUB_USER/$IMAGE_NAME:$TAG
+    docker run -d --name $CONTAINER_NAME \
+               -e APP_ENV=$APP_ENV \
+               -e BASIC_USER=$BASIC_USER \
+               -e BASIC_PASSWORD=$BASIC_PASSWORD \
+               -p $DOCKER_RSS_PORT:$DOCKER_RSS_INTERNAL_PORT \
+               -m 128m \
+               $DOCKERHUB_USER/$IMAGE_NAME:$TAG
     exit
 EOF
 

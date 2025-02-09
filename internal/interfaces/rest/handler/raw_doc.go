@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-
-	"github.com/go-chi/chi/v5"
 )
 
 type RawDocHandler struct {
@@ -16,12 +14,7 @@ func NewRawDocHandler() *RawDocHandler {
 }
 
 func (r2 RawDocHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	docType := chi.URLParam(r, "type")
 	contentType := "application/yaml"
-
-	if docType == "" {
-		docType = "yaml"
-	}
 
 	currWd, err := os.Getwd()
 	if err != nil {
@@ -36,5 +29,5 @@ func (r2 RawDocHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", contentType)
-	w.Write(content)
+	_, _ = w.Write(content)
 }
