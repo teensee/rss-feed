@@ -87,7 +87,7 @@ components:
             $ref: '#/components/schemas/FeedListItemResponse'
 
     FeedListItemResponse:
-      required: [ link, title, description, pubDate ]
+      required: [ link, title, description, pubDate, author ]
       type: object
       properties:
         link:
@@ -98,6 +98,9 @@ components:
           type: string
         pubDate:
           type: string
+        author:
+          type: string
+          example: Some Author
 
     ProcessorListResponse:
       type: object

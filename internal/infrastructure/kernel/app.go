@@ -155,11 +155,13 @@ func (b *Builder) WithEndpoints() *Builder {
 	r := chi.NewRouter()
 
 	if os.Getenv("APP_ENV") != "" {
-		r.Use(middleware.BasicAuth(
-			"feed-api",
-			map[string]string{
-				os.Getenv("BASIC_USER"): os.Getenv("BASIC_PASSWORD"),
-			}),
+		r.Use(
+			middleware.BasicAuth(
+				"feed-api",
+				map[string]string{
+					os.Getenv("BASIC_USER"): os.Getenv("BASIC_PASSWORD"),
+				},
+			),
 		)
 	}
 

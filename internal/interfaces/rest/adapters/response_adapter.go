@@ -16,6 +16,7 @@ func ToRssResponseList(feed []*rss.Feed) dto.FeedListResponse {
 				Link:        item.GetLink(),
 				Description: item.GetDescription(),
 				PubDate:     item.GetPubDate(),
+				Author:      item.GetCreator(),
 			})
 		}
 
